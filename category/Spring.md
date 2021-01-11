@@ -1,6 +1,6 @@
 ---
 layout: category
-title: Refactoring
+title: Spring
 ---
 # 스프링에 대해 공부한 내용을 올립니다.
 
