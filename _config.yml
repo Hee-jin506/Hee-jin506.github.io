@@ -5,7 +5,7 @@ highlighter:      rouge
 # Setup
 title:            eungeun
 tagline:          'A Jekyll theme'
-description:      'If you need something desperately and find it, this is not an accident.<br>Your own craving and compulsion leads you to it.<br><a href="https://github.com/Hee-jin506" target="_blank">github</a>'
+description:      'If you need something desperately and find it, this is not an accident.<br>Your own craving and compulsion leads you to it.<br><a href="https://github.com/Hee-jin506" target="_blank">github.com/Hee-jin506</a>'
 url:              https://Hee-jin506.github.io
 baseurl:          ''
                   # the optional subpath of your site, e.g. "/blog"
