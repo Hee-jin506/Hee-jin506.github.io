@@ -4,9 +4,7 @@ title: "[모던 JavaScript 튜토리얼] 2.2 코드 구조"
 categories:
   - Javascript
 tags:
-  - 모던 JavaScript 튜토리얼
-
-
+  - 모던 JavaScript 튜토리얼s
 ---
 
 > **[모던 JavaScript 튜토리얼](https://ko.javascript.info/)을 읽고 정리하였습니다.**
