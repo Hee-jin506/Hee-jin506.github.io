@@ -5,6 +5,7 @@ categories:
   - Javascript
 tags:
   - 모던 JavaScript 튜토리얼
+
 ---
 
 > [**모던 JavaScript 튜토리얼**](https://ko.javascript.info/)을 읽고 정리하였습니다.
@@ -92,3 +93,4 @@ script 태그는 src 속성과 내부 코드를 동시에 가지지 못한다.
   alert(1); // src 속성이 사용되었으므로 이 코드는 무시됩니다.
 </script>
 ```
+
