@@ -75,3 +75,4 @@ confirm 함수는 매개변수로 받은 question과 확인 및 취소 버튼이
 let isBoss = confirm("당신이 주인인가요?");
 alert( isBoss );
 ```
+
