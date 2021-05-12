@@ -631,5 +631,3 @@ movies['year'].value_counts()
   movies = pd.read_csv('/content/drive/MyDrive/추천 시스템 입문편/data/ml-latest-small/movies.csv', index_col='movieId')
   ```
 
-- loc
-
