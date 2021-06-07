@@ -334,3 +334,235 @@ ___
   - 그룹 타이머는 EXCLUDE 모드에서만 사용
     - 타임 아웃 -> INCLUDE로 변환
 
+___
+
+### 12.2 IPTV
+
+- 채널 변경시 발생하는 IGMPv2 패킷
+
+  - KT의 **GLOP address** 사용 : SBS -> KBS로 채널 변경
+    - SBS에게서 메시지를 받고 있었음 : SBS 서버 `125.159.0.53`
+    - SBS 그룹 LEAVE
+    - KBS 그룹 JOIN
+      - src : `118.48.34.143` - 교수님 셋톱박스
+    - 그 후에 아직 끊기기전에 전송된 SBS 패킷이 마지막으로 도착
+    - SBS에서 Group-specific query
+      - src : `61.72.223.167` - 교수님 셋톱박스를 담당하는 라우터
+    - KBS에서 패킷을 흘려보냄 : KBS 서버 `125.159.1.170`
+  
+  ![]({{site.url}}/assets/images/198.png)
+
+> **GLOP (Global Private) address**
+>
+> ip global multicast 223.0.0.0/24 : 자신의 AS를 띄워놓으면 마치 자기 자신의 주소인 것처럼 사용 가능
+
+- IGMP Proxying
+
+  - 교수님 셋톱박스와 교수님 셋톱박스에게 Group-specific query를 보낸 서버가 같은 링크에 있지 않다.
+    - 이것을 가능하게 해주는 기법은 IGMP Proxying으로, 중간의 셋톱박스와 같은 링크에 있는 라우터가 투명인간처럼 IGMPv3 capable한 멀티캐스트 라우터 사이에서 대리로 전달해주고 있는 것
+    - 링크마다 IGMP capable 멀티캐스트 라우터를 둘 필요가 없게 됨
+
+  ![]({{site.url}}/assets/images/199.png)
+
+___
+
+### 12.3 IPv6에서의 멤버쉽 관리
+
+- IGMP 없음: **ICMPv6**를 사용한 **Multicast Listener Discovery (MLD)**
+  - MLDv1 = IGMPv2 (ASM)
+  - MLDv2 = IGMPv3 (SSM)
+  - **Link-local source IP**, **TTL=1**, IP Router Alert Option
+    - 보통 기존의 IGMP가 미치던 범위는 **한 홉**이다. (IGMP Proxing 예외)
+    - 원래에는 라우터는 모든 멀티캐스트 그룹의 가입원이다라는 가정 하에 모든 멀티캐스트 그룹을 열어보도록 했지만 지금은 그럴 필요없이 IP Router Alert Option만 필요할 때 설정한다.
+
+- MLDv1 형식
+  - Type
+    - 130 = receiver query
+    - 131 = receiver report (자발적/비자발적)
+    - **132 = receiver done (탈퇴)**
+      - IGMPv2이므로 탈퇴가 명시되어 있음
+  - Checksum: **pseudo-header** 사용
+    - **IP 주소 2개 + payload length** + next header(ICMPv6 헤더)
+    - IP 레벨에서 한번더 체크해주는 역할 포함
+  - Max Response Delay (단위ms)
+
+![]({{site.url}}/assets/images/200.png)
+
+- MLDv2 메시지 - SSM을 위한 필드 추가
+  - General Query는 ff02::1로
+    - IPv4에서는 224.0.0.1
+  - Multicast-Address-Specific Query (구 Group-Specific Query)는 ip source 주소가 그룹 주소로 설정됨
+  - Report
+    - MLDv1: 해당 그룹 주소로
+    - MLDv2: **ff02::16**으로 
+      - IPv4에서는 224.0.0.2/224.0.0.22
+      - 모든 **MLDv2-capable 라우터 그룹**
+  - **Done 메시지(탈퇴)**는 **ff02::2**로
+    - **모든 라우터 그룹**
+
+![]({{site.url}}/assets/images/201.png)
+
+- MLDv2 메시지 예
+  - IPv6 Hop by Hop Options - Router alert
+  - IP dst Addr : `ff02::16` - MLDv2 capable 라우터들 => **REPORT**
+  - IP src Addr : `fe80::..` - Link Local Addr
+  - Report Message v2
+  - Multicast Address Record "Change to Include"
+    - **<u>Number of Sources : 0</u>** => 탈퇴!!
+
+![]({{site.url}}/assets/images/202.png)
+
+___
+
+### 12.4 멀티캐스트 라우팅 프로토콜
+
+- 멀티캐스트 그룹의 소스로부터 가입자들까지 멀티캐스트 메시지를 효과적으로 전달하기 위한 분배트리를 구성하기 위해 만들어진 프로토콜
+  - 분배 트리를 구성하기 위한 **라우터들끼리의 대화**
+  - **Protocol-Independent Multicast (PIM)**이 표준
+    - PIM은 OSPF와 같이 같은 링크 안에서만 대화하기 위한 용도로는 필요가 없다. 원격의 서버에서부터 시작하여 수많은 가입자들까지 메시지를 분배하기 위한 **트리 구성을 위한 용도**이다.
+    - 이름의 유래 : 멀티캐스트 라우팅 테이블을 만들때 유니캐스트 라우팅 테이블을 조금 사용한다. 이 때 어떤 프로토콜이 유니캐스트 라우팅 테이블을 만들었는지 상관하지 않고 만들어진 결과만 사용하기 때문에 (유니캐스트) 프로토콜의 종류에 상관없이 테이블을 참조하여 테이블을 만든다는 의미에서 이름이 지어졌다.
+    - IP 멀티캐스트가 ASM이었을 당시에는 PIM-DM과 PIM-SM을 사용했으며, IGMP와 더불어서 PIM도 SSM 모델을 지원하기 위해 **PIM-SSM**이 새로 생겨났다.
+
+![]({{site.url}}/assets/images/203.png)
+
+- PIM-DM(dense mode)은 **flood-and-prune** 방식
+  - 멤버쉽 변화에 맞춰 **분배 트리를 수정**하기 위해, 모든 멀티캐스트 라우터들은 주기적으로 source로부터의 트래픽 **flooding**을 허용
+    - Multicast 패킷이 들어온 인터페이스 외의 모든 인터페이스로 복사해서 내보냄
+    - **주기 예) 2분** : 그 사이에 멤버십 변화가 생길 경우를 대비해서
+  - Reverse Path Forwarding (RPF) 검사
+    - 불필요한 flooding을 제거하기 위한 검사
+    - 만일 source 쪽으로 unicast 트래픽을 보낸다면 사용할 인터페이스로 들어온 multicast traffic은 forward; 나머지 인터페이스로 들어온 multicast traffic은 무시 
+  - 멀티캐스트 라우터들은 **수신 여부를 상류 (upstream) 라우터에게 통고**
+    - 하류에 수신자가 있는 경우: no action
+    - 하류에 수신자가 **없는** 경우: PRUNE 메시지
+
+> **PIM-DM은 좀 옛날 방식**
+>
+> 사실상 IPTV 망에서는 잘 사용되지 않는다. 거의 모든 가입자가 flooding해주는 메시지를 받아볼 의향이 있는 경우(dense한 경우)가 아니라면, 이것은 비효율적인 방법이다. 현재는 점점 더 공중파 시청률이 떨어지고 있으므로 더욱 더 DM은 효율적인 방법이 될 수가 없는 것이다.
+>
+> 또한 2분마다 주기가 있다는 것은 그 2분 사이에 채널을 바꾸면 바로 원하는 영상이 나오지 않는다는 치명적인 단점이 있다. 그렇다고 주기를 짧게 하면 할수록 더 효율이 안좋아지는 딜레마에 있는 것이다.
+
+___
+
+- PIM-DM은 flood-and-prune 방식
+
+  - Flood : 오로지 라우터들 사이에서 발생
+
+    - 서로 주고 받고 난리가 남
+
+    ![]({{site.url}}/assets/images/204.png)
+
+  - Reverse Path Forwarding (RPF) check
+
+    - 똑같은 패킷이 한 라우터에게 여러번 보내지거나 루프를 발생시키는 비효율적인 flood를 차단
+    - 방법 : 각각의 라우터에서 소스에서부터 최단 경로로 도착할 수 있는 패킷만 받고 나머지는 차단
+      - 최단 경로를 구하는 방법 : 소스를 목적지로 하는 경로를 유니캐스트 라우팅 테이블에서 lookup하여 해당 엔트리의 next hop 인터페이스로 온 패킷만을 받음
+    - 이를 통해 일방향으로 downstream으로만 흘러가도록 제어
+
+    ![]({{site.url}}/assets/images/205.png)
+
+    > **최단 경로를 판단하기 위해 TTL을 사용하면 안될까?**
+    >
+    > - TTL을 통해 경로를 구하는 것은 지금은 사용되지 않는 RARP를 사용하는 방법이다.
+    >
+    > - 또한 이제는 OSPF를 통해 최단 경로를 구하게 되는데, 이 때, 단순히 홉 수 뿐만 아니라, 한 링크를 건너가는데 발생하는 비용을 고려하기 때문에 TTL보다는 라우팅 테이블 lookup을 통해 최단 경로를 판단하는 것이 더 정확하다. 
+    > - Protocol Independant Protocol이라는 점에서도, 어떤 protocol을 사용했는지 여부와 상관없이 만들어진 라우팅 테이블만을 사용한다는 설계 철학이 반영되었다.
+
+  - Prune
+
+    - Prune을 해야되는 라우터라면 자신이 RPF를 통해 무시했던 수용했든 관계없이 자신에게 패킷을 보낸 모든 인터페이스에게 Prune 메시지를 보낸다.
+    - RPF를 통해 패킷을 수용한 라우터를 자신의 상위 라우터라고 간주하고, 자신이 패킷을 보내준 모든 나머지 라우터들에게서 Prune을 모두 받은 경우에만 한하여 상위 라우터에게 Prune을 보낸다.
+
+    ![]({{site.url}}/assets/images/206.png)
+
+___
+
+- PIM-DM 멀티캐스트 라우터 상태
+  - Prune은 논리적인 flag를 통해서 기록된다.
+    - InPort : 메시지가 들어온 포트(상위)
+    - Outports : 메시지가 나가는 포트(하위)
+    - 모든 Outports에서 p라는 flag가 기록되면 Inport에도 Pr이라는 flag를 마크해놓음
+  - 멀티캐스트 라우팅 테이블 =/= 유니캐스트 라우팅 테이블
+  - Prune 기록은 다음 flooding 때까지만 유효
+    - 주기가 지나면 flag 기록이 모두 지워지면서 다시 경로가 뚫림
+
+![]({{site.url}}/assets/images/207.png)
+
+___
+
+- Protocol-Independent Multicast (PIM) 프로토콜
+  - 사실상 표준
+  - RPF 계산 시 unicast 라우팅 테이블 참고
+    - 어떤 unicast 라우팅 프로토콜이든지 상관 없다 (protocol-independent)
+
+- PIM 모드
+  - DM
+    - Flood-and-prune
+    - **대부분의 멀티캐스트 라우터가 수신**할 때 유의미 (cf. IPTV???)
+  - Sparse Mode (SM)
+  - Source-Specific Multicast (SSM)
+  - Bi-directional PIM
+
+- PIM-SM
+  - 트리 가지는 **JOIN 요청이 있어야** 만들어짐
+    - 새로운 멤버가 생기면 트리에 덧붙여줌
+  - **Core (Rendezvous Point; RP)**라는 특별한 라우터 사용
+
+- PIM-SSM
+  - **SSM을 지원**하기 위해서는 IGMP 뿐 아니라 PIM도 바뀌어야 했다
+  - 소스 유효성 반영
+
+- Bi-directional PIM
+  - 그룹에 **발신자가 많을 때**
+  - 링크에서 RP로 지정 전달자 (Designated Fowarder; DF) 존재
+
+___
+
+- PIM 메시지 형식
+  - PIM = **IP 프로토콜** **103**
+  - 트랜스포트를 사용하지 않고 IP 위에 바로 실려감
+
+![]({{site.url}}/assets/images/208.png)
+
+- Type
+
+  ![]({{site.url}}/assets/images/209.png)
+
+- PIM 메시지 형식
+
+  - Hello: 각 인터페이스가 주기적으로 **ALL-PIM-ROUTERS** 그룹에 전송
+
+    - `224.0.0.13`, `ff02::d`
+    - **인접 라우터** 파악
+    - Options 내용
+      - **Hold time**: Hello 메시지 없이 **이 시간이 지나면 연결 불가능**으로 간주
+      - **Generation ID**: 바뀌면 **이웃 라우터의 상태가 바뀐 것**으로 간주
+      - DR 우선순위
+
+    ![]({{site.url}}/assets/images/210.png)
+
+  - Register
+
+    - **PIM-SM**에서만 쓰임
+    - Source를 담당한 라우터가 **RP**에 트래픽을 등록하기 위해 멀티캐스트 패킷을 tunneling
+      - 등록 : 송신자가 수신자를 모르는 상태에서 트래픽을 일단 RP에게 보내주는 것
+      - 등록은 패킷을 하나하나 포장하는 과정이며 더군다나 최종 목적지도 아니기 때문에 비용이 꽤 되는 작업이다.
+    - 등록 중지 (Register-Stop)은 **최단 경로 트리**를 통한 배달로 전환하도록 RP가 Source 담당 라우터로 전송
+      - 서로의 IP주소를 알게 되면, 비용이 드는 등록을 멈추고 다이렉트하게 보내는 것을 의미한다.
+
+    ![]({{site.url}}/assets/images/211.png)
+
+    - 소스 호스트가 자신을 담당하는 라우터에게 패킷을 보내주면 해당 라우터는 RP의 주소를 이미 알고 있기 때문에 RP로 유니캐스트를 보낸다.
+
+> **RP는 중매쟁이**
+>
+> IP 멀티캐스트의 가장 중요한 설계 철학은 송신자가 수신자를 모른다는 점이다. 수신자도 마찬가지로 처음에는 송신자가 누구인지 모르며 그룹 주소만 알고 있다. RP는 이러한 양측에게 있어서 만남의 광장이다. 송신자의 트래픽도 RP로 가며, 수신자의 Request 메시지도 RP로 간다. 기본적인 전제는 송신자도, 수신자도 RP의 위치는 안다는 점이다.
+
+> **PIM은 라우터들끼리만 이뤄지는 프로토콜**
+>
+> 멀티캐스트 센더가 되는 호스트는 그냥 자신을 담당하는 라우터에게 패킷만 단순히 보내줄 뿐, PIM 대화에 끼지 않는다. 대화에 관여하는 것은 패킷을 받은 라우터뿐이다.
+
+> **IPTV 망은 IP멀티캐스트만을 위해 셋업된 망**
+>
+> 따라서 이 망에 있는 모든 라우터는 RP의 주소를 알고 있도록 설정이 되어있다. 수동으로 설정할 수도 있고, 자동으로 설정하는 프로토콜의 피쳐를 사용할 수도 있다.
+
